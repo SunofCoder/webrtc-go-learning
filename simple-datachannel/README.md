@@ -18,5 +18,6 @@ go run main.go
 ```
 
 2. Open browser at http://localhost:8080
+
 3. Send messages via DataChannel and see them in terminal & browser logs.
 
