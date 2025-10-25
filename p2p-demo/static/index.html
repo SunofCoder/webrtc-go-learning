@@ -1,0 +1,64 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title> P2P WebRTC Demo</title>
+    <style>
+        video { width: 45%; border: 1px solid #ccc; margin: 5px; }
+    </style>
+</head>
+<body>
+<h3>P2P WebRTC Demo (1-on-1)</h3>
+<video id="local" autoplay playsinline muted></video>
+<video id="remote" autoplay playsinline></video>
+<br>
+Room: <input id="room" value="test-room">
+<button id="join">Join</button>
+
+<script>
+    const localVideo = document.getElementById('local');
+    const remoteVideo = document.getElementById('remote');
+    const joinBtn = document.getElementById('join');
+    let pc, ws, localStream;
+
+    async function startLocal() {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        localVideo.srcObject = localStream;
+    }
+
+    function setupPC() {
+        pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+        localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+
+        pc.ontrack = e => remoteVideo.srcObject = e.streams[0];
+        pc.onicecandidate = e => e.candidate && ws.send(JSON.stringify({ type: 'candidate', candidate: e.candidate }));
+    }
+
+    joinBtn.onclick = async () => {
+        const room = document.getElementById('room').value;
+        ws = new WebSocket(`ws://${location.host}/ws`);
+        ws.onopen = async () => {
+            ws.send(JSON.stringify({ type: 'join', room }));
+            await startLocal();
+            setupPC();
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            ws.send(JSON.stringify(offer));
+        };
+
+        ws.onmessage = async (evt) => {
+            const msg = JSON.parse(evt.data);
+            if (msg.type === 'answer') await pc.setRemoteDescription(msg);
+            else if (msg.type === 'offer') {
+                await startLocal();
+                setupPC();
+                await pc.setRemoteDescription(msg);
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                ws.send(JSON.stringify(answer));
+            } else if (msg.candidate) await pc.addIceCandidate(msg);
+        };
+    };
+</script>
+</body>
+</html>
