@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FFmpeg RTP to WebRTC</title>
+</head>
+<body>
+<h2>FFmpeg RTP → WebRTC Example</h2>
+
+<video id="video" autoplay playsinline controls width="640" height="480"></video>
+
+<h3>Browser SDP Offer</h3>
+<textarea id="offer" cols="80" rows="5" readonly></textarea>
+
+<h3>Paste Go Answer Here</h3>
+<textarea id="answer" cols="80" rows="5"></textarea>
+
+<button id="start">Create Offer</button>
+<button id="startVideo">Start Video</button>
+
+<script>
+  const video = document.getElementById('video');
+  const startButton = document.getElementById('start');
+  const startVideoButton = document.getElementById('startVideo');
+  const offerTextarea = document.getElementById('offer');
+  const answerTextarea = document.getElementById('answer');
+  let pc;
+
+  // Step 1: Create browser Offer
+  startButton.onclick = async () => {
+    pc = new RTCPeerConnection({
+      iceServers: [{ urls: ["stun:stun.l.google.com:19302"] }]
+    });
+
+    pc.ontrack = event => {
+      video.srcObject = event.streams[0];
+    };
+
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+
+    const offerB64 = btoa(JSON.stringify(pc.localDescription));
+    offerTextarea.value = offerB64;
+    alert("Copy this Offer and paste it into Go terminal, then press Enter.");
+  };
+
+  // Step 2: Set Go Answer and start video
+  startVideoButton.onclick = async () => {
+    if (!pc) return alert("Create an Offer first!");
+    if (!answerTextarea.value) return alert("Paste the Go Answer first!");
+
+    const answer = JSON.parse(atob(answerTextarea.value));
+    await pc.setRemoteDescription(answer);
+    alert("Video should start playing shortly!");
+  };
+</script>
+</body>
+</html>
